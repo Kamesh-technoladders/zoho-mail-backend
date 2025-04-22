@@ -3,23 +3,29 @@ const axios = require('axios');
 const app = express();
 require('dotenv').config();
 
-
 app.use(express.json());
 
 const ZEPTO_TOKEN = process.env.ZEPTO_TOKEN;
-const ZEPTO_URL = 'api.zeptomail.in/';
+const ZEPTO_URL = 'https://api.zeptomail.in/v1/email';
 
 app.post('/send-email', async (req, res) => {
+  console.log('Received request body:', req.body); // Log the full body
   const { reportData } = req.body;
+
+  // Validate reportData
+  if (!reportData || !Array.isArray(reportData)) {
+    console.error('Invalid reportData:', reportData);
+    return res.status(400).send('reportData must be an array');
+  }
 
   const tableHeaders = ['Client Name', 'Total Candidates', 'Processed', 'Interviewed', 'Offered', 'Joined'];
   const tableRows = reportData.map((client, index) => [
-    client.name,
+    client.name || 'Unknown',
     client.totalCandidates || 0,
-    client.statusBreakdown.find(s => s.statusName === 'Processed')?.count || 0,
-    client.statusBreakdown.find(s => ['Interview', 'Interviewed'].includes(s.statusName))?.count || 0,
-    client.statusBreakdown.find(s => s.statusName === 'Offered')?.count || 0,
-    client.statusBreakdown.find(s => s.statusName === 'Joined')?.count || 0,
+    client.statusBreakdown?.find(s => s.statusName === 'Processed')?.count || 0,
+    client.statusBreakdown?.find(s => ['Interview', 'Interviewed'].includes(s.statusName))?.count || 0,
+    client.statusBreakdown?.find(s => s.statusName === 'Offered')?.count || 0,
+    client.statusBreakdown?.find(s => s.statusName === 'Joined')?.count || 0,
   ]);
 
   const tableHtml = `
@@ -53,8 +59,10 @@ app.post('/send-email', async (req, res) => {
     });
 
     if (response.data && response.data.message === 'Email sent successfully') {
+      console.log('Email sent successfully');
       res.send("Email sent successfully!");
     } else {
+      console.error('Unexpected response from ZeptoMail:', response.data);
       res.status(400).send("Email not sent. Check response.");
     }
   } catch (error) {
